@@ -1,5 +1,5 @@
 CXX = gcc
-CXXFLAGS = -Wall -Wno-unused-function
+CXXFLAGS = -Wall -Wno-unused-function -L /opt/homebrew/Cellar/zeromq/4.3.5_1/lib -I /opt/homebrew/Cellar/zeromq/4.3.5_1/include
 LIBS = -lncurses -lzmq 
 
 .PHONY: clean run

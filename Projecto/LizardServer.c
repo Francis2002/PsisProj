@@ -24,6 +24,10 @@
 
 //To do , good practice to separate the code between  multiple files , json already done , will need to be done for the collision checks. 
 //To do , we need to check snake placement when joining , might coliide if a nother player has not yet moved.
+//TODO: erro de comer roaches infinitas qd encostadas a parede
+//TODO: alterar direcao do corpo do lizard
+//TODO: alterar aquela merda do char ja nao vir do client
+//TODO: leaderboard?
 
 //The display still need to be done.
 //
