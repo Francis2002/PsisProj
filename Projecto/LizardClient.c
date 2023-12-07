@@ -101,13 +101,13 @@ int main()
     scrollok(stdscr, TRUE);		
 	noecho();			
 
-    int n = 0;
+    //int n = 0;
     int key;
     int previous_score;
     do
     {
     	key = getch();		
-        n++;
+        //n++;
         switch (key)
         {
         case KEY_LEFT:

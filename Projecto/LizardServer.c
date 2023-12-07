@@ -64,9 +64,6 @@ typedef struct roaches
     int **roaches_positions;
 }roaches;
 
-
-
-
 bool check_lizardHead_colision(int position_X , int position_Y, int head_postions_cache[Max_Players_Count][2])
 {
     for(int i = 0 ; i <Max_Players_Count ; ++i)
@@ -257,7 +254,7 @@ int main()
     }
     int head_postions_cache[Max_Players_Count][2]; //Sort of like a dict so that there is easy comparisons;
     int number_of_lizards = 0;
-    int Number_of_roaches_clients = 0 ;
+    //int Number_of_roaches_clients = 0 ;
 
 	void* context = zmq_ctx_new();
     void* responder = zmq_socket(context, ZMQ_REP);
@@ -290,6 +287,7 @@ int main()
         deserialize(received_data, &message_received);
         Check_roaches_clock(roaches_info,head_postions_cache);
         Repopulate_roaches(my_win,roaches_info);
+        //forward message to all subscribers
         if(message_received.msg_type == -1)//Player disconnection
         {
             int client_position = message_received.client_id;
@@ -310,6 +308,17 @@ int main()
 
             char acknowledgment[] = "You have been disconnected";
             zmq_send(responder, acknowledgment, strlen(acknowledgment), 0);
+
+            changed_coordinates coordinates_array[5];
+            for (int i = 0; i < 5; i++)
+            {
+                coordinates_array[i].x = lizard_info[client_position].body_positions[i][0];
+                coordinates_array[i].y = lizard_info[client_position].body_positions[i][1];
+                coordinates_array[i].new_char = ' ';
+            }
+        
+            char *json_data = serialize_coordinates(coordinates_array, 5);
+            s_send (publisher, json_data);
         }
         if(message_received.msg_type == 0)// Player connection
         {
@@ -362,9 +371,25 @@ int main()
                     lizard_info[client_position].password = atoi(concatenated_password);
                     char acknowledgment[100];
                     sprintf(acknowledgment, "Succefully connected:%s\n",concatenated_password);
-                    s_send (publisher, acknowledgment);
-
+                    //s_send (publisher, acknowledgment);
                     zmq_send(responder, acknowledgment, strlen(acknowledgment), 0);
+
+                    changed_coordinates coordinates_array[5];
+                    for (int i = 0; i < 5; i++)
+                    {
+                        //add body positions to array, having in mind that one of them is the head
+                        coordinates_array[i].x = lizard_info[client_position].body_positions[i][0];
+                        coordinates_array[i].y = lizard_info[client_position].body_positions[i][1];
+                        if (lizard_info[client_position].body_positions[i][0] == lizard_info[client_position].lizard_head_x && lizard_info[client_position].body_positions[i][1] == lizard_info[client_position].lizard_head_y) {
+                            coordinates_array[i].new_char = lizard_info[client_position].head;
+                        } else {
+                            coordinates_array[i].new_char = lizard_info[client_position].body[0];
+                        }
+                    }
+
+                    char *json_data = serialize_coordinates(coordinates_array, 5);
+                    s_send (publisher, json_data);
+
                 }else
                 {
                     char acknowledgment[] = "Invalid id number";
@@ -434,9 +459,21 @@ int main()
                         }
                     wrefresh(my_win);
                     total_amount_of_roaches = total_amount_of_roaches + message_received.roaches_amount;
-                    Number_of_roaches_clients++;
+                    //Number_of_roaches_clients++;
                     char acknowledgment[] = "Succefully connected";
                     zmq_send(responder, acknowledgment, strlen(acknowledgment), 0);
+
+                    //create changed_coordinates array with roaches positions
+                    changed_coordinates coordinates_array[roaches_info[client_position].roaches_count];
+                    for (int i = 0; i < roaches_info[client_position].roaches_count; i++)
+                    {
+                        coordinates_array[i].x = roaches_info[client_position].roaches_positions[i][0];
+                        coordinates_array[i].y = roaches_info[client_position].roaches_positions[i][1];
+                        coordinates_array[i].new_char = roaches_info[client_position].roaches_weights[i] + 48;
+                    }
+
+                    char *json_data = serialize_coordinates(coordinates_array, roaches_info[client_position].roaches_count);
+                    s_send (publisher, json_data);
                 }
                 else
                 {
@@ -506,6 +543,33 @@ int main()
                     s_send (publisher, message);
                     sprintf(acknowledgment, "Your score is:%d\n",lizard_info[client_id].score);
                     zmq_send(responder, acknowledgment, strlen(acknowledgment), 0);
+
+                    changed_coordinates coordinates_array[6];
+                    coordinates_array[0].x = pos_x;
+                    coordinates_array[0].y = pos_y;
+                    coordinates_array[0].new_char = ' ';
+
+                    for (int i = 1; i < 6; i++)
+                    {
+                        //add body positions to array, having in mind that one of them is the head
+                        coordinates_array[i].x = lizard_info[client_id].body_positions[i-1][0];
+                        coordinates_array[i].y = lizard_info[client_id].body_positions[i-1][1];
+                        if (lizard_info[client_id].body_positions[i-1][0] == lizard_info[client_id].lizard_head_x && lizard_info[client_id].body_positions[i-1][1] == lizard_info[client_id].lizard_head_y) 
+                        {
+                            coordinates_array[i].new_char = lizard_info[client_id].head;
+                        } 
+                        else 
+                        {
+                            if(lizard_info[client_id].score >= 50)
+                            {
+                                coordinates_array[i].new_char = lizard_info[client_id].victory_body[0];
+                            }else
+                                coordinates_array[i].new_char = lizard_info[client_id].body[0];
+                        }
+                    }
+                    char *json_data = serialize_coordinates(coordinates_array, 6);
+                    s_send (publisher, json_data);
+
                 }else
                 {
                     wrefresh(my_win);
@@ -521,6 +585,9 @@ int main()
             int client_position = message_received.client_id;
             if(roaches_info[client_position].client_id == client_position)//Just in case someone tries to send a player movement without registering
             {
+                changed_coordinates* coordinates_array;
+                coordinates_array = malloc(roaches_info[client_position].roaches_count * sizeof(changed_coordinates));
+                int moved_roaches_times_2 = 0;
                 //Todo check collision with a snakes head
                 for(int i  = 0; i< roaches_info[client_position].roaches_count; i++)
                 {
@@ -538,16 +605,28 @@ int main()
                                 wmove(my_win, pos_x, pos_y);
                                 waddch(my_win,' ');
 
+                                coordinates_array[moved_roaches_times_2].x = pos_x;
+                                coordinates_array[moved_roaches_times_2].y = pos_y;
+                                coordinates_array[moved_roaches_times_2].new_char = ' ';
+
                                 new_position(&(roaches_info[client_position].roaches_positions[i][0]), &(roaches_info[client_position].roaches_positions[i][1]), message_received.roaches_directions[i]);
                                 wmove(my_win, roaches_info[client_position].roaches_positions[i][0], roaches_info[client_position].roaches_positions[i][1]);
                                 waddch(my_win,roaches_info[client_position].roaches_weights[i]| A_BOLD);
                                 wrefresh(my_win);
+
+                                coordinates_array[moved_roaches_times_2].x = roaches_info[client_position].roaches_positions[i][0];
+                                coordinates_array[moved_roaches_times_2].y = roaches_info[client_position].roaches_positions[i][1];
+                                coordinates_array[moved_roaches_times_2].new_char = roaches_info[client_position].roaches_weights[i] + 48;
+                                moved_roaches_times_2 += 2;
                             }
                         }
                     } 
                 }
+                char *json_data = serialize_coordinates(coordinates_array, moved_roaches_times_2);
+                s_send (publisher, json_data);
                 char ack[] = "Mexeu";
                 zmq_send(responder, ack, strlen(ack), 0);
+                s_send (publisher, received_data);
             }
         }		
     }

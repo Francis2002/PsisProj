@@ -43,6 +43,60 @@ char* serialize(remote_char_t m) {
     return json_data;
 }
 
+char* serialize_coordinates(changed_coordinates m[], int size) {
+    char* json_data = (char*)malloc(MAX_JSON_SIZE * sizeof(char));
+    if (json_data == NULL) {
+        printf("Memory allocation failed!\n");
+        return NULL;
+    }
+
+    sprintf(json_data, "{\"msg_type\": %d,\"changed_coordinates\": [" , size);
+
+    // Append roaches_weights array to JSON representation
+    for (int i = 0; i < size; ++i) {
+        if (i > 0) {
+            strcat(json_data, ", ");
+        }
+        char temp[100]; // Temporary buffer for converting int to string
+        sprintf(temp, "{\"x\": %d, \"y\": %d, \"new_char\": \"%c\"}", m[i].x, m[i].y, m[i].new_char);
+        strcat(json_data, temp);
+    }
+
+    strcat(json_data, "]}"); // Close the JSON object
+
+    return json_data;
+}
+
+void deserialize_coordinates(const char* json_data, coordinates_message *m)
+{
+    sscanf(json_data, "{\"msg_type\": %d", &(m->size));
+    const char* changed_coordinates_start = strstr(json_data, "\"changed_coordinates\": [");
+    if (changed_coordinates_start != NULL) {
+        changed_coordinates_start += strlen("\"changed_coordinates\": [");
+        const char* changed_coordinates_end = strchr(changed_coordinates_start, ']');
+        if (changed_coordinates_end != NULL) {
+            int num_coordinates = changed_coordinates_end - changed_coordinates_start;
+            char* changed_coordinates_str = (char*)malloc((num_coordinates + 1) * sizeof(char));
+            if (changed_coordinates_str != NULL) {
+                strncpy(changed_coordinates_str, changed_coordinates_start, num_coordinates);
+                changed_coordinates_str[num_coordinates] = '\0';
+
+                // Convert coordinates string to integer array
+                m->changed_coordinates = (changed_coordinates*)malloc(m->size * sizeof(changed_coordinates));
+                if (m->changed_coordinates != NULL) {
+                    char* token = strtok(changed_coordinates_str, ", ");
+                    int i = 0;
+                    while (token != NULL && i < m->size) {
+                        sscanf(token, "{\"x\": %d, \"y\": %d, \"new_char\": \"%c\"}", &(m->changed_coordinates[i].x), &(m->changed_coordinates[i].y), &(m->changed_coordinates[i].new_char));
+                        token = strtok(NULL, ", ");
+                        i++;
+                    }
+                }
+                free(changed_coordinates_str); // Free temporary string
+            }
+        }
+    }
+}
 
 void deserialize(const char* json_data, remote_char_t *m) 
 {

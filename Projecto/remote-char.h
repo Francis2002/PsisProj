@@ -17,6 +17,19 @@ typedef struct remote_char_t
     direction_t *roaches_directions;
 }remote_char_t;
 
+typedef struct changed_coordinates
+{
+    int x;
+    int y;
+    char new_char;
+}changed_coordinates;
+
+typedef struct coordinates_message
+{
+    changed_coordinates *changed_coordinates;
+    int size;
+}coordinates_message;
+
 #define FIFO_NAME "/tmp/fifo_snail"
 
 

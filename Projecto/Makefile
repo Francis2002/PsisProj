@@ -22,6 +22,6 @@ server: LizardServer.c
 	$(CXX) $(CXXFLAGS) -o server LizardServer.c json.c $(LIBS)
 
 display: Display.c
-	$(CXX) $(CXXFLAGS) -o display Display.c $(LIBS)
+	$(CXX) $(CXXFLAGS) -o display Display.c json.c $(LIBS)
 
 all: $(TARGETS)
