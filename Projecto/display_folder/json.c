@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #define MAX_JSON_SIZE 10000
 
@@ -43,9 +44,9 @@ char* serialize(remote_char_t m) {
     return json_data;
 }
 
-char* serialize_coordinates(changed_coordinates m[], int size) {
+char* serialize_coordinates(changed_coordinates m[], int size, int begining_position,int final_position) {
     char* json_data = (char*)malloc(MAX_JSON_SIZE * sizeof(char));
-    if (json_data == NULL) {
+    if (json_data == NULL) {//Memory fail safe
         printf("Memory allocation failed!\n");
         return NULL;
     }
@@ -53,11 +54,11 @@ char* serialize_coordinates(changed_coordinates m[], int size) {
     sprintf(json_data, "{\"msg_type\": %d,\"changed_coordinates\": [" , size);
 
     // Append roaches_weights array to JSON representation
-    for (int i = 0; i < size; ++i) {
-        if (i > 0) {
+    for (int i = begining_position; i < final_position; ++i) {
+        if (i > begining_position) {
             strcat(json_data, ", ");
         }
-        char temp[100]; // Temporary buffer for converting int to string
+        char temp[1000]; // Temporary buffer for converting int to string
         sprintf(temp, "{\"x\": %d, \"y\": %d, \"new_char\": \"%c\"}", m[i].x, m[i].y, m[i].new_char);
         strcat(json_data, temp);
     }
@@ -67,36 +68,73 @@ char* serialize_coordinates(changed_coordinates m[], int size) {
     return json_data;
 }
 
-void deserialize_coordinates(const char* json_data, coordinates_message *m)
+void deserialize_coordinates(const char* json_data, coordinates_message *m) 
 {
     sscanf(json_data, "{\"msg_type\": %d", &(m->size));
     const char* changed_coordinates_start = strstr(json_data, "\"changed_coordinates\": [");
-    if (changed_coordinates_start != NULL) {
+    
+    if (changed_coordinates_start != NULL) 
+    {
         changed_coordinates_start += strlen("\"changed_coordinates\": [");
         const char* changed_coordinates_end = strchr(changed_coordinates_start, ']');
-        if (changed_coordinates_end != NULL) {
+        if (changed_coordinates_end != NULL) 
+        {
             int num_coordinates = changed_coordinates_end - changed_coordinates_start;
             char* changed_coordinates_str = (char*)malloc((num_coordinates + 1) * sizeof(char));
-            if (changed_coordinates_str != NULL) {
+            if (changed_coordinates_str != NULL) 
+            {
                 strncpy(changed_coordinates_str, changed_coordinates_start, num_coordinates);
                 changed_coordinates_str[num_coordinates] = '\0';
-
-                // Convert coordinates string to integer array
-                m->changed_coordinates = (changed_coordinates*)malloc(m->size * sizeof(changed_coordinates));
-                if (m->changed_coordinates != NULL) {
-                    char* token = strtok(changed_coordinates_str, ", ");
+                m->changed_coordinates = (changed_coordinates*)malloc(m->size * sizeof(changed_coordinates));         
+                if (m->changed_coordinates != NULL) 
+                {
+                    char* token = strtok(changed_coordinates_str, ":,");
                     int i = 0;
-                    while (token != NULL && i < m->size) {
-                        sscanf(token, "{\"x\": %d, \"y\": %d, \"new_char\": \"%c\"}", &(m->changed_coordinates[i].x), &(m->changed_coordinates[i].y), &(m->changed_coordinates[i].new_char));
-                        token = strtok(NULL, ", ");
+                    int helper = 0 ;
+                    int divison_helper = 0;
+                    int new_char_found = 0;
+                    while (token != NULL && i < (m->size * 6)) 
+                    {
+                        //printf("%s\n",token);
+                        if(new_char_found == 1)
+                        {
+                            if (token != NULL) 
+                            {
+                                sscanf(token, " \"%c\"", &(m->changed_coordinates[helper].new_char));
+                                helper++;
+                                divison_helper++;
+                                new_char_found = 0;
+                            }
+                        }
+                        if (strlen(token) <= 3)
+                        {
+                            if (divison_helper % 3 == 0) 
+                            {
+                                sscanf(token, "%d", &(m->changed_coordinates[helper].x));
+                                divison_helper++;
+                            } else if (divison_helper % 3 == 1) 
+                            {
+                                sscanf(token, "%d", &(m->changed_coordinates[helper].y));
+                                divison_helper++;
+                            }
+                        } else if (strcmp(token, " \"new_char\"") == 0) 
+                        {
+                            new_char_found = 1;
+                        }
+
+                        token = strtok(NULL, ":,");
                         i++;
                     }
                 }
                 free(changed_coordinates_str); // Free temporary string
+            } else {
+                printf("Memory allocation failed!\n");
+                // Handle memory allocation failure
             }
         }
     }
 }
+
 
 void deserialize(const char* json_data, remote_char_t *m) 
 {

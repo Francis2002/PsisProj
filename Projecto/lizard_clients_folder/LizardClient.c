@@ -10,19 +10,65 @@
 #include <zmq.h>
 #include <string.h>
 #include <time.h>
-#define SERVER_PORT "5555"
+
 #define MAX_JSON_SIZE 10000
 
 //Ideas: maybe store the already tried id for a quicker evalutaion
 
-int main()
+int verify_ip_and_tcpport(char* ip)
 {
+  char store_temp[5][1000];
+  char temporary[1000];
+  strcpy(temporary,ip);
+  char *token;
+  int j=0;
+  token = strtok(temporary,".");    // partir a repostas nas suas componentes 
+  while( token != NULL )
+      {
+        strcpy(store_temp[j],token);
+        token = strtok(NULL,".");
+        j++;
+      }
+  if (((strlen(store_temp[0])>0) && (strlen(store_temp[1])>0)&& (strlen(store_temp[2])>0) 
+      &&(strlen(store_temp[3])<4)) && ((strcmp(store_temp[0],"\0")!=0) && (strcmp(store_temp[1],"\0")!=0)&& 
+        ((atoi(store_temp[0])<266) && (atoi(store_temp[1])<266) && (atoi(store_temp[2])<266) && (atoi(store_temp[3])<266))))
+  {
+    return 0;
+  }
+  return -1;
+}
+
+int main(int argc, char *argv[])
+{	 
+    if(argc != 3)
+    {
+        printf("Invalid number of arguments\n");
+        exit(1);
+    }
+
+    int SERVER_PORT = atoi(argv[2]);
+    if(SERVER_PORT < 1024 || SERVER_PORT > 65535)
+    {
+        printf("Invalid port number\n");
+        exit(1);
+    }
+
+    char *ipAddress = argv[1];
+    if(verify_ip_and_tcpport(ipAddress) == -1)
+    {
+        printf("Invalid ip address\n");
+        exit(1);
+    }
+
+
     srand(time(NULL));
     void* context = zmq_ctx_new();
     void* requester = zmq_socket(context, ZMQ_REQ);
 
     // Connect to the server
-    int connection_result = zmq_connect(requester, "tcp://127.0.0.1:" SERVER_PORT);
+    char server[100];
+    sprintf(server, "tcp://%s:%d", ipAddress, SERVER_PORT);
+    int connection_result = zmq_connect(requester, server);
     if (connection_result == 0) {
         //printf("Connection to server successful!\n");
     } else {
@@ -32,9 +78,10 @@ int main()
 
     char ch;
     do{
-        printf("what is your character(a..z)?: ");
+        printf("what is your character(a..z)?:");
         ch = getchar();
         ch = tolower(ch);  
+        printf("\n");
     }while(!isalpha(ch));
 
 
@@ -60,15 +107,13 @@ int main()
             token = strtok(NULL, ":");
         }
 
-        printf("%d\n",m.password);
-
         successful_connect = 1;
     
     }else if((strncmp(acknowledgment, "Invalid id number",17) == 0))
     {                                       
         while(successful_connect == 0)
         {
-            m.client_id = (rand() % 29);
+            m.client_id = (rand() % 26);
             serialized_data = serialize(m);
             zmq_send(requester, serialized_data, strlen(serialized_data), 0);
 

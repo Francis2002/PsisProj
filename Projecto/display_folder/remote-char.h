@@ -30,7 +30,7 @@ typedef struct coordinates_message
     int size;
 }coordinates_message;
 
-#define FIFO_NAME "/tmp/fifo_snail"
+#define FIFO_NAME "/tmp/fifo_snail" // whythis is here?
 
 
 #endif 
